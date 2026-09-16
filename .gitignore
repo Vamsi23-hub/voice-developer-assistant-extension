@@ -1,0 +1,12 @@
+node_modules
+.pnpm-store
+dist
+dist-helper
+models
+helpers/stt/fixtures/*.wav
+.DS_Store
+*.vsix
+coverage/
+.env
+.env.*
+*.log

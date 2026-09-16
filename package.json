@@ -1,0 +1,87 @@
+{
+  "name": "voice-developer-assistant",
+  "displayName": "Voice Developer Assistant",
+  "description": "Run natural-language developer commands from the editor.",
+  "version": "0.1.0",
+  "publisher": "vamsikalapala",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:voiceDeveloperAssistant.runCommand",
+    "onCommand:voiceDeveloperAssistant.setRepositoryAlias",
+    "onCommand:voiceDeveloperAssistant.runSttFixture",
+    "onCommand:voiceDeveloperAssistant.startPushToTalk",
+    "onCommand:voiceDeveloperAssistant.stopPushToTalk",
+    "onCommand:voiceDeveloperAssistant.cancelPushToTalk",
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "voiceDeveloperAssistant.runCommand",
+        "title": "Voice Developer Assistant: Run Command"
+      },
+      {
+        "command": "voiceDeveloperAssistant.setRepositoryAlias",
+        "title": "Voice Developer Assistant: Set Repository Alias"
+      },
+      {
+        "command": "voiceDeveloperAssistant.runSttFixture",
+        "title": "Voice Developer Assistant: Run STT Fixture"
+      },
+      {
+        "command": "voiceDeveloperAssistant.startPushToTalk",
+        "title": "Voice Developer Assistant: Start Push-to-Talk"
+      },
+      {
+        "command": "voiceDeveloperAssistant.stopPushToTalk",
+        "title": "Voice Developer Assistant: Stop Push-to-Talk"
+      },
+      {
+        "command": "voiceDeveloperAssistant.cancelPushToTalk",
+        "title": "Voice Developer Assistant: Cancel Push-to-Talk"
+      }
+    ],
+    "configuration": {
+      "title": "Voice Developer Assistant",
+      "properties": {
+        "voiceDeveloperAssistant.sttModelDir": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a sherpa-onnx English Whisper model directory. Recommended development model: sherpa-onnx-whisper-base.en. If empty, VDA_STT_MODEL_DIR is used."
+        },
+        "voiceDeveloperAssistant.nodePath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional absolute path to the Node.js executable used to spawn the STT and voice helpers. Leave empty to use node from PATH. Do not use the VS Code/Cursor Electron binary."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "compile": "pnpm run check && pnpm stt:build && node esbuild.mjs",
+    "watch": "pnpm stt:build && node esbuild.mjs --watch",
+    "package": "pnpm run check && pnpm stt:build && node esbuild.mjs --production",
+    "test": "vitest run",
+    "stt:build": "node esbuild-helper.mjs",
+    "stt:test": "pnpm stt:build && node scripts/stt-test.mjs",
+    "stt:eval": "pnpm stt:build && node scripts/stt-eval.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  },
+  "dependencies": {
+    "node-cpal": "^1.0.0",
+    "sherpa-onnx-node": "^1.13.8"
+  }
+}

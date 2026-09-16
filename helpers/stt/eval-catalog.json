@@ -1,0 +1,12 @@
+{
+  "phrases": [
+    { "file": "open-terminal.wav", "expected": "open terminal" },
+    { "file": "git-status.wav", "expected": "git status" },
+    { "file": "open-package-json.wav", "expected": "open package json" },
+    {
+      "file": "open-site-visual-builder.wav",
+      "expected": "open site visual builder"
+    },
+    { "file": "open-storefront.wav", "expected": "open storefront" }
+  ]
+}
