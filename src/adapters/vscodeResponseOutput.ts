@@ -10,7 +10,6 @@ export class VscodeResponseOutput implements ResponseOutput, vscode.Disposable {
 
   debug(message: string): void {
     this.channel.appendLine(`[debug] ${message}`);
-    this.channel.show(true);
   }
 
   async info(message: string): Promise<void> {
@@ -20,7 +19,6 @@ export class VscodeResponseOutput implements ResponseOutput, vscode.Disposable {
 
   async error(message: string): Promise<void> {
     this.channel.appendLine(`[error] ${message}`);
-    this.channel.show(true);
     if (message === "No workspace is open.") {
       const action = await vscode.window.showErrorMessage(
         message,
@@ -45,7 +43,6 @@ export class VscodeResponseOutput implements ResponseOutput, vscode.Disposable {
   async gitOutput(formatted: string): Promise<void> {
     this.channel.appendLine("[git status]");
     this.channel.appendLine(formatted);
-    this.channel.show(true);
   }
 
   dispose(): void {

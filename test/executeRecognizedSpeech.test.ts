@@ -45,6 +45,7 @@ function createEngine(
 ) {
   const ide: IdeAdapter = {
     openTerminal: vi.fn(),
+    runTrustedTerminalCommand: vi.fn(),
     openFile: vi.fn(),
     openFolder: vi.fn(),
     getWorkspaceRoot: vi.fn(() => "/workspace/repo"),
@@ -83,6 +84,7 @@ describe("executeRecognizedSpeech", () => {
     expect(output.infos).toContain("Opened terminal.");
     expect(ide.openTerminal).toHaveBeenCalledOnce();
     expect(ide.openTerminal).toHaveBeenCalledWith("/workspace/repo");
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
   });
 
@@ -98,8 +100,12 @@ describe("executeRecognizedSpeech", () => {
     });
 
     expect(output.infos).toContain('Heard: "git status"');
-    expect(git.status).toHaveBeenCalledWith("/workspace/repo");
+    expect(ide.runTrustedTerminalCommand).toHaveBeenCalledWith(
+      "git status",
+      "/workspace/repo"
+    );
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(git.status).not.toHaveBeenCalled();
   });
 
   it("opens a repository alias through the existing intent", async () => {
@@ -118,6 +124,7 @@ describe("executeRecognizedSpeech", () => {
     expect(output.infos).toContain('Heard: "open site visual builder"');
     expect(ide.openFolder).toHaveBeenCalledWith("/repos/site-visual-builder");
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
   });
 
@@ -137,6 +144,7 @@ describe("executeRecognizedSpeech", () => {
       'Unrecognized command: "(buzzer buzzing)".',
     ]);
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(ide.openFile).not.toHaveBeenCalled();
     expect(ide.openFolder).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
@@ -158,6 +166,7 @@ describe("executeRecognizedSpeech", () => {
       "Speech recognition produced an empty transcript.",
     ]);
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
   });
 
@@ -176,6 +185,7 @@ describe("executeRecognizedSpeech", () => {
     expect(output.errors).toEqual(['Unrecognized command: "get status".']);
     expect(git.status).not.toHaveBeenCalled();
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
   });
 
   it("keeps open dinner as openFile without rewriting dinner to terminal", async () => {
@@ -191,6 +201,7 @@ describe("executeRecognizedSpeech", () => {
 
     expect(output.infos).toContain('Heard: "open dinner"');
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(ide.openFile).toHaveBeenCalledWith("dinner");
   });
 
@@ -207,7 +218,26 @@ describe("executeRecognizedSpeech", () => {
 
     expect(output.infos).toContain('Heard: "open integral"');
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(ide.openFile).toHaveBeenCalledWith("integral");
+  });
+
+  it("does not send arbitrary recognized text to the terminal", async () => {
+    const output = createOutput();
+    const { engine, ide, git } = createEngine(output);
+
+    await executeRecognizedSpeech({
+      transcript: "rm -rf /",
+      aliases: [],
+      engine,
+      output,
+    });
+
+    expect(output.infos).toContain('Heard: "rm -rf /"');
+    expect(output.errors).toEqual(['Unrecognized command: "rm -rf /".']);
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
+    expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(git.status).not.toHaveBeenCalled();
   });
 });
 
@@ -231,6 +261,7 @@ describe("handleVoiceStopResult", () => {
     expect(output.infos).toEqual([]);
     expect(output.errors).toEqual(["Speech recognition failed."]);
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
   });
 

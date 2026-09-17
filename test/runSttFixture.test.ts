@@ -39,6 +39,7 @@ function createOutput(): ResponseOutput & {
 function createEngine(output: ResponseOutput) {
   const ide: IdeAdapter = {
     openTerminal: vi.fn(),
+    runTrustedTerminalCommand: vi.fn(),
     openFile: vi.fn(),
     openFolder: vi.fn(),
     getWorkspaceRoot: vi.fn(() => "/workspace/repo"),
@@ -84,6 +85,7 @@ describe("runSttFixture pipeline", () => {
     expect(output.infos).toContain('Heard: "open terminal"');
     expect(ide.openTerminal).toHaveBeenCalledWith("/workspace/repo");
     expect(git.status).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
   });
 
   it("shows an STT error and does not execute a command", async () => {
@@ -111,6 +113,7 @@ describe("runSttFixture pipeline", () => {
     expect(ide.openTerminal).not.toHaveBeenCalled();
     expect(ide.openFile).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
   });
 
   it("uses existing unknown-command behavior for an unrecognized transcript", async () => {
@@ -138,6 +141,7 @@ describe("runSttFixture pipeline", () => {
     expect(ide.openTerminal).not.toHaveBeenCalled();
     expect(ide.openFile).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
   });
 
   it("does not substitute integral for terminal", async () => {
@@ -160,6 +164,7 @@ describe("runSttFixture pipeline", () => {
 
     expect(output.infos).toContain('Heard: "open integral"');
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(ide.openFile).toHaveBeenCalledWith("integral");
   });
 });

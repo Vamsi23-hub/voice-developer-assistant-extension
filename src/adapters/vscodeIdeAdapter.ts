@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { IdeAdapter } from "../ports/ports";
+import { assertTrustedTerminalCommand } from "../core/trustedTerminalCommand";
+import { IdeAdapter, TrustedTerminalCommand } from "../ports/ports";
 import { resolveWorkspaceRoot } from "./resolveWorkspaceRoot";
 import { findFilesOnDisk } from "./workspacePaths";
 
@@ -21,6 +22,30 @@ function globForFilename(filename: string): string {
   return `**/${posixName}`;
 }
 
+function terminalCwd(terminal: vscode.Terminal): string | undefined {
+  const options = terminal.creationOptions;
+  if (!("cwd" in options) || options.cwd === undefined) {
+    return undefined;
+  }
+  return typeof options.cwd === "string" ? options.cwd : options.cwd.fsPath;
+}
+
+function sameCwd(left: string, right: string): boolean {
+  return path.resolve(left) === path.resolve(right);
+}
+
+function findReusableAssistantTerminal(
+  cwd: string
+): vscode.Terminal | undefined {
+  return vscode.window.terminals.find((terminal) => {
+    if (terminal.name !== TERMINAL_NAME) {
+      return false;
+    }
+    const existingCwd = terminalCwd(terminal);
+    return existingCwd !== undefined && sameCwd(existingCwd, cwd);
+  });
+}
+
 export class VscodeIdeAdapter implements IdeAdapter {
   constructor(private readonly developmentFallback?: string) {}
 
@@ -30,6 +55,21 @@ export class VscodeIdeAdapter implements IdeAdapter {
       cwd,
     });
     terminal.show();
+  }
+
+  async runTrustedTerminalCommand(
+    command: TrustedTerminalCommand,
+    cwd: string
+  ): Promise<void> {
+    assertTrustedTerminalCommand(command);
+    const terminal =
+      findReusableAssistantTerminal(cwd) ??
+      vscode.window.createTerminal({
+        name: TERMINAL_NAME,
+        cwd,
+      });
+    terminal.show();
+    terminal.sendText(command);
   }
 
   async openFile(filename: string): Promise<void> {

@@ -1,9 +1,15 @@
 export interface IdeAdapter {
   openTerminal(cwd?: string): Promise<void>;
+  runTrustedTerminalCommand(
+    command: TrustedTerminalCommand,
+    cwd: string
+  ): Promise<void>;
   openFile(filename: string): Promise<void>;
   openFolder(absolutePath: string): Promise<void>;
   getWorkspaceRoot(): string | undefined;
 }
+
+export type TrustedTerminalCommand = "git status";
 
 export type GitCommandResult = {
   stdout: string;

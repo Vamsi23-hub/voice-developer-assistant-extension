@@ -1,10 +1,12 @@
 import { Intent } from "./intent";
 import { aliasesMatch } from "./normalizeAlias";
-import { formatGitStatus, parseGitStatus } from "./parseGitStatus";
+import {
+  TRUSTED_GIT_STATUS_COMMAND,
+  trustedTerminalCommandForIntent,
+} from "./trustedTerminalCommand";
 import { validateIntent } from "./validateIntent";
 import {
   AliasStore,
-  GitCommandResult,
   GitRunner,
   IdeAdapter,
   ResponseOutput,
@@ -18,9 +20,6 @@ export type CommandEngineDeps = {
 };
 
 const NO_WORKSPACE_ERROR = "No workspace is open.";
-const GIT_NOT_FOUND_ERROR =
-  "Git was not found. Make sure Git is installed and on your PATH.";
-const NOT_A_GIT_REPO_ERROR = "This workspace is not a Git repository.";
 
 function resolveAlias(
   aliases: Record<string, string>,
@@ -100,14 +99,16 @@ export class CommandEngine {
       await this.deps.output.error(NO_WORKSPACE_ERROR);
       return;
     }
-    this.deps.output.debug(`git cwd: ${root}`);
-    const result = await this.deps.git.status(root);
-    this.logGitResult(result);
-    if (await this.reportGitFailure(result)) {
+    const command = trustedTerminalCommandForIntent({ kind: "gitStatus" });
+    if (command !== TRUSTED_GIT_STATUS_COMMAND) {
+      await this.deps.output.error("Git status is not available.");
       return;
     }
-    const parsed = parseGitStatus(result.stdout);
-    await this.deps.output.gitOutput(formatGitStatus(parsed));
+    this.deps.output.debug(`git cwd: ${root}`);
+    await this.deps.ide.runTrustedTerminalCommand(command, root);
+    this.deps.output.debug(
+      "command execution result: showed git status in terminal"
+    );
   }
 
   private async handleOpenFile(filename: string): Promise<void> {
@@ -133,34 +134,6 @@ export class CommandEngine {
       `command execution result: opened repository ${alias}`
     );
     await this.deps.output.info(`Opened repository "${alias}".`);
-  }
-
-  private logGitResult(result: GitCommandResult): void {
-    const notFound = result.gitNotFound ? " gitNotFound=true" : "";
-    this.deps.output.debug(
-      `command execution result: git status code=${result.code}${notFound}`
-    );
-  }
-
-  private async reportGitFailure(result: GitCommandResult): Promise<boolean> {
-    if (result.gitNotFound) {
-      await this.deps.output.error(GIT_NOT_FOUND_ERROR);
-      return true;
-    }
-    if (result.code === 0) {
-      return false;
-    }
-    const stderr = result.stderr.trim();
-    const detail = stderr || `exit ${result.code}`;
-    this.deps.output.debug(`command execution error: ${detail}`);
-    if (/not a git repository/i.test(stderr)) {
-      await this.deps.output.error(NOT_A_GIT_REPO_ERROR);
-      return true;
-    }
-    await this.deps.output.error(
-      stderr || `git status exited with code ${result.code}.`
-    );
-    return true;
   }
 
   private requireWorkspaceRoot(): string | undefined {

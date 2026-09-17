@@ -31,6 +31,10 @@ Speech must first be converted into a structured Intent.
 
 Prefer `execFile` or `spawn` with argument arrays instead of shell strings.
 
+Git status is shown in a named integrated terminal using only the fixed
+trusted command `git status`. Never send recognized speech to
+`terminal.sendText`.
+
 Dangerous Git or filesystem operations must require explicit user confirmation.
 
 ## Initial MVP

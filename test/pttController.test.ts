@@ -42,24 +42,23 @@ function createOutput(): ResponseOutput & {
 function createEngine(
   output: ResponseOutput,
   options?: {
-    gitStatus?: GitRunner["status"];
+    runTrustedTerminalCommand?: IdeAdapter["runTrustedTerminalCommand"];
     aliasMap?: Record<string, string>;
   }
 ) {
   const ide: IdeAdapter = {
     openTerminal: vi.fn(),
+    runTrustedTerminalCommand: options?.runTrustedTerminalCommand ?? vi.fn(),
     openFile: vi.fn(),
     openFolder: vi.fn(),
     getWorkspaceRoot: vi.fn(() => "/workspace/repo"),
   };
   const git: GitRunner = {
-    status:
-      options?.gitStatus ??
-      vi.fn(async () => ({
-        stdout: "# branch.head main\n",
-        stderr: "",
-        code: 0,
-      })),
+    status: vi.fn(async () => ({
+      stdout: "# branch.head main\n",
+      stderr: "",
+      code: 0,
+    })),
   };
   const aliases: AliasStore = {
     getAll: vi.fn(async () => options?.aliasMap ?? {}),
@@ -156,7 +155,7 @@ describe("pttController serialization", () => {
 
   it("rejects Start while PROCESSING_AUDIO", async () => {
     const output = createOutput();
-    const { engine, aliases, git } = createEngine(output);
+    const { engine, aliases, ide } = createEngine(output);
     const client = createFakeClient();
     const controller = createPttController({
       client,
@@ -179,18 +178,18 @@ describe("pttController serialization", () => {
     });
     await stopping;
     expect(controller.state()).toBe("idle");
-    expect(git.status).toHaveBeenCalledOnce();
+    expect(ide.runTrustedTerminalCommand).toHaveBeenCalledOnce();
+    expect(ide.runTrustedTerminalCommand).toHaveBeenCalledWith(
+      "git status",
+      "/workspace/repo"
+    );
   });
 
   it("rejects Start while PROCESSING_INTENT", async () => {
     const output = createOutput();
-    const gitGate = createDeferred<{
-      stdout: string;
-      stderr: string;
-      code: number;
-    }>();
-    const { engine, aliases, git } = createEngine(output, {
-      gitStatus: vi.fn(() => gitGate.promise),
+    const runGate = createDeferred<void>();
+    const { engine, aliases, ide } = createEngine(output, {
+      runTrustedTerminalCommand: vi.fn(() => runGate.promise),
     });
     const client = createFakeClient({
       onStop: async (sessionId) => ({
@@ -213,21 +212,17 @@ describe("pttController serialization", () => {
     expect(output.errors).toEqual([VOICE_BUSY_MESSAGE]);
     expect(client.started).toEqual(["1"]);
     expect(controller.state()).toBe("processingIntent");
-    gitGate.resolve({ stdout: "# branch.head main\n", stderr: "", code: 0 });
+    runGate.resolve();
     await stopping;
     expect(controller.state()).toBe("idle");
-    expect(git.status).toHaveBeenCalledOnce();
+    expect(ide.runTrustedTerminalCommand).toHaveBeenCalledOnce();
   });
 
   it("awaits command execution before returning to IDLE", async () => {
     const output = createOutput();
-    const gitGate = createDeferred<{
-      stdout: string;
-      stderr: string;
-      code: number;
-    }>();
+    const runGate = createDeferred<void>();
     const { engine, aliases } = createEngine(output, {
-      gitStatus: vi.fn(() => gitGate.promise),
+      runTrustedTerminalCommand: vi.fn(() => runGate.promise),
     });
     const client = createFakeClient({
       onStop: async (sessionId) => ({
@@ -247,7 +242,7 @@ describe("pttController serialization", () => {
     const stopping = controller.stop();
     await expect.poll(() => controller.state()).toBe("processingIntent");
     expect(controller.state()).not.toBe("idle");
-    gitGate.resolve({ stdout: "# branch.head main\n", stderr: "", code: 0 });
+    runGate.resolve();
     await stopping;
     expect(controller.state()).toBe("idle");
   });
@@ -276,6 +271,7 @@ describe("pttController serialization", () => {
     expect(output.errors).toEqual(['Unrecognized command: "get status".']);
     expect(git.status).not.toHaveBeenCalled();
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
   });
 
   it("keeps open dinner as openFile without semantic correction", async () => {
@@ -301,13 +297,14 @@ describe("pttController serialization", () => {
     expect(output.infos).toContain('Heard: "open dinner"');
     expect(ide.openFile).toHaveBeenCalledWith("dinner");
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
   });
 
   it("returns to IDLE after a command failure", async () => {
     const output = createOutput();
-    const { engine, aliases, git } = createEngine(output, {
-      gitStatus: vi.fn(async () => {
+    const { engine, aliases, ide } = createEngine(output, {
+      runTrustedTerminalCommand: vi.fn(async () => {
         throw new Error("git failed");
       }),
     });
@@ -329,7 +326,7 @@ describe("pttController serialization", () => {
     await controller.stop();
     expect(controller.state()).toBe("idle");
     expect(output.errors).toEqual(["git failed"]);
-    expect(git.status).toHaveBeenCalledOnce();
+    expect(ide.runTrustedTerminalCommand).toHaveBeenCalledOnce();
   });
 
   it("returns to IDLE after a helper or STT failure", async () => {
@@ -355,6 +352,7 @@ describe("pttController serialization", () => {
     expect(controller.state()).toBe("idle");
     expect(output.errors).toEqual(["Speech recognition failed."]);
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
   });
 
@@ -375,6 +373,7 @@ describe("pttController serialization", () => {
     expect(controller.state()).toBe("idle");
     expect(client.cancelled).toEqual(["1"]);
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
     expect(output.infos).toEqual([]);
   });
@@ -406,6 +405,7 @@ describe("pttController serialization", () => {
     await firstStop;
     expect(controller.state()).toBe("recording");
     expect(ide.openTerminal).not.toHaveBeenCalled();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(git.status).not.toHaveBeenCalled();
     expect(output.infos).toEqual([]);
   });
@@ -432,6 +432,7 @@ describe("pttController serialization", () => {
     await controller.stop();
     expect(controller.state()).toBe("idle");
     expect(ide.openTerminal).toHaveBeenCalledOnce();
+    expect(ide.runTrustedTerminalCommand).not.toHaveBeenCalled();
     expect(output.infos.filter((line) => line.startsWith("Heard:"))).toEqual([
       'Heard: "open terminal"',
     ]);
